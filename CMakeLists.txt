@@ -141,7 +141,6 @@ include_directories(
   ${CMAKE_BINARY_DIR}/ext_build/dist/include/OpenEXR
 )
 
-
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/openvdb)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/openvdb/openvdb)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/ext)
@@ -221,17 +220,14 @@ file(GLOB_RECURSE openvdb_viewer_sources ${CMAKE_CURRENT_SOURCE_DIR}/openvdb/ope
 add_library(openvdb_viewer STATIC ${openvdb_viewer_sources} ${openvdb_viewer_headers})
 target_compile_definitions(openvdb_viewer PRIVATE OPENVDB_USE_GLFW_3 GL_GLEXT_PROTOTYPES)
 
-
-add_custom_command(OUTPUT openvdb_viewer_link COMMAND ln;-s;${CMAKE_CURRENT_SOURCE_DIR}/openvdb/openvdb/viewer;${CMAKE_CURRENT_SOURCE_DIR}/openvdb/openvdb/openvdb_viewer)
-
 # command line utilities
 add_executable(openvdb_print openvdb/openvdb/cmd/openvdb_print/main.cc)
 target_link_libraries(openvdb_print openvdb)
-add_executable(openvdb_render openvdb/openvdb/cmd/openvdb_render/main.cc)
-target_link_libraries(openvdb_render openvdb)
+# add_executable(openvdb_render openvdb/openvdb/cmd/openvdb_render/main.cc)
+# target_link_libraries(openvdb_render openvdb)
 add_executable(openvdb_view openvdb/openvdb/cmd/openvdb_view/main.cc)
 target_link_libraries(openvdb_view openvdb_viewer openvdb)
-add_custom_command(TARGET openvdb_view PRE_BUILD
+add_custom_command(TARGET openvdb_viewer PRE_BUILD
                    COMMAND ${CMAKE_COMMAND} -E copy_directory
                    ${CMAKE_CURRENT_SOURCE_DIR}/openvdb/openvdb/viewer
                    ${CMAKE_CURRENT_SOURCE_DIR}/openvdb/openvdb/openvdb_viewer
@@ -242,5 +238,9 @@ add_dependencies(openvdb OpenEXR_p)
 add_dependencies(openvdb tbb_p)
 add_dependencies(openvdb glfw_p)
 add_dependencies(openvdb_print openvdb)
-add_dependencies(openvdb_render openvdb)
+# add_dependencies(openvdb_render openvdb)
 add_dependencies(openvdb_view openvdb)
+
+install(TARGETS openvdb ARCHIVE DESTINATION lib)
+install(TARGETS openvdb_print openvdb_view RUNTIME DESTINATION bin)
+install(DIRECTORY openvdb/openvdb DESTINATION include)
