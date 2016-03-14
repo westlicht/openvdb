@@ -85,7 +85,7 @@ endif()
 if(WIN32)
   # Build zlib (only needed on Windows, Linux/OSX already have it)
   ExternalProject_Add(zlib_p
-    URL             "${CMAKE_SOURCE_DIR}/ext/zlib"
+    URL             "${CMAKE_CURRENT_SOURCE_DIR}/ext/zlib"
     PREFIX          "ext_build"
     CMAKE_ARGS      ${CMAKE_EXTERNAL_ARGUMENTS}
   )
@@ -93,28 +93,28 @@ endif(WIN32)
 
 # Build Intel Thread Building Blocks
 ExternalProject_Add(tbb_p
-  URL             "${CMAKE_SOURCE_DIR}/ext/tbb"
+  URL             "${CMAKE_CURRENT_SOURCE_DIR}/ext/tbb"
   PREFIX          "ext_build"
   CMAKE_ARGS      ${CMAKE_EXTERNAL_ARGUMENTS} -DBUILD_SHARED_LIBS=OFF -DNAMESPACE_VERSIONING=NO
 )
 
 # Build IlmBase, a support library needed by OpenEXR
 ExternalProject_Add(IlmBase_p
-  URL             "${CMAKE_SOURCE_DIR}/ext/openexr/IlmBase"
+  URL             "${CMAKE_CURRENT_SOURCE_DIR}/ext/openexr/IlmBase"
   PREFIX          "ext_build"
   CMAKE_ARGS      ${CMAKE_EXTERNAL_ARGUMENTS} -DILMBASE_BUILD_SHARED_LIBS=OFF -DBUILD_SHARED_LIBS=OFF -DNAMESPACE_VERSIONING=NO
 )
 
 # Build OpenEXR
 ExternalProject_Add(OpenEXR_p
-  URL             "${CMAKE_SOURCE_DIR}/ext/openexr/OpenEXR"
+  URL             "${CMAKE_CURRENT_SOURCE_DIR}/ext/openexr/OpenEXR"
   PREFIX          "ext_build"
   CMAKE_ARGS      ${CMAKE_EXTERNAL_ARGUMENTS} -DOPENEXR_BUILD_SHARED_LIBS=OFF -DILMBASE_PACKAGE_PREFIX=${CMAKE_BINARY_DIR}/ext_build/dist -DBUILD_SHARED_LIBS=OFF -DNAMESPACE_VERSIONING=NO
 )
 
 # Build GLFW
 ExternalProject_Add(glfw_p
-  URL             "${CMAKE_SOURCE_DIR}/ext/glfw"
+  URL             "${CMAKE_CURRENT_SOURCE_DIR}/ext/glfw"
   PREFIX          "ext_build"
   CMAKE_ARGS      ${CMAKE_EXTERNAL_ARGUMENTS} -DGLFW_BUILD_TESTS=0 -DGLFW_BUILD_EXAMPLES=0 -DGLFW_BUILD_DOCS=0
 )
