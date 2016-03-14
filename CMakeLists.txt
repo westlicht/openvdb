@@ -1,6 +1,22 @@
 cmake_minimum_required (VERSION 2.8.3)
 
-project("openvdb")
+project("OpenVDB")
+
+if(NOT IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/ext/glfw/src")
+  message(FATAL_ERROR "The OpenVDB dependency repositories (GLFW, etc.) are missing! "
+    "You probably did not clone the project with --recursive. It is possible to recover "
+    "by calling \"git submodule update --init --recursive\"")
+endif()
+
+option(OPENVDB_BUILD_VIEWER "Build OpenVDB viewer application?" ON)
+option(OPENVDB_BUILD_SHARED  "Build OpenVDB as a shared library?" ON)
+
+# Required libraries for linking against OpenVDB (all targets)
+set(OPENVDB_EXTRA_LIBS "")
+
+if(APPLE AND OPENVDB_BUILD_SHARED)
+  set(CMAKE_MACOSX_RPATH ON)
+endif()
 
 include(CMakeParseArguments)
 
@@ -34,9 +50,9 @@ if (MSVC)
   add_definitions (/D "_CRT_SECURE_NO_WARNINGS")
 
   include_directories(ext/glew/include)
-  set(extra_libs opengl32 glew)
+  set(OPENVDB_EXTRA_LIBS opengl32 glew)
 
-  set(extra_libs ${extra_libs}
+  set(OPENVDB_EXTRA_LIBS ${OPENVDB_EXTRA_LIBS}
     $<$<CONFIG:Debug>:zlibstaticd>
     $<$<CONFIG:RelWithDebInfo>:zlibstatic>
     $<$<CONFIG:Release>:zlibstatic> 
@@ -62,7 +78,7 @@ elseif(APPLE)
   find_library(opengl_library OpenGL)
   find_library(corevideo_library CoreVideo)
   find_library(iokit_library IOKit)
-  set(extra_libs ${cocoa_library} ${opengl_library} ${corevideo_library} ${iokit_library} z)
+  set(OPENVDB_EXTRA_LIBS ${cocoa_library} ${opengl_library} ${corevideo_library} ${iokit_library} z)
 
   # Compile in C++11 mode
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -stdlib=libc++")
@@ -76,10 +92,15 @@ elseif(APPLE)
   set(CMAKE_EXTERNAL_ARGUMENTS ${CMAKE_EXTERNAL_ARGUMENTS} -DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET} -DCMAKE_OSX_SYSROOT=${CMAKE_OSX_SYSROOT})
 elseif("${CMAKE_SYSTEM}" MATCHES "Linux")
   # Linux-specific build flags
-  set(extra_libs dl GL GLU Xxf86vm Xrandr Xinerama Xcursor Xi X11 pthread z)
+  set(OPENVDB_EXTRA_LIBS dl GL GLU Xxf86vm Xrandr Xinerama Xcursor Xi X11 pthread z)
 
   # Compile in C++11 mode
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-register")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
 endif()
 
 if(WIN32)
@@ -147,7 +168,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/ext)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/ext/zlib)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/ext/glfw)
 
-set(extra_libs IlmImf-2_2 IlmThread-2_2 Iex-2_2 IexMath-2_2 Imath-2_2 Half tbb glfw3 ${extra_libs} ${Boost_LIBRARIES})
+set(OPENVDB_EXTRA_LIBS IlmImf-2_2 IlmThread-2_2 Iex-2_2 IexMath-2_2 Imath-2_2 Half tbb glfw3 ${OPENVDB_EXTRA_LIBS} ${Boost_LIBRARIES})
 
 #--------------------------------------------------------------------
 # Define defintions
@@ -208,11 +229,18 @@ list(APPEND openvdb_sources
   ${openvdb_util_sources}
 )
 
+# set library type
+if(OPENVDB_BUILD_SHARED)
+  set(OPENVDB_LIBRARY_TYPE "SHARED")
+else()
+  set(OPENVDB_LIBRARY_TYPE "STATIC")
+endif()
+
 # openvdb library
-add_library(openvdb STATIC ${openvdb_sources} ${openvdb_headers})
+add_library(openvdb ${OPENVDB_LIBRARY_TYPE} ${openvdb_sources} ${openvdb_headers})
 target_compile_definitions(openvdb PRIVATE OPENVDB_PRIVATE)
 #set_target_properties(openvdb PROPERTIES COMPILE_DEFINITIONS "OPENVDB_PRIVATE")
-target_link_libraries(openvdb ${extra_libs})
+target_link_libraries(openvdb ${OPENVDB_EXTRA_LIBS})
 
 # openvdb viewer library
 file(GLOB_RECURSE openvdb_viewer_headers ${CMAKE_CURRENT_SOURCE_DIR}/openvdb/openvdb/viewer/*.h)
@@ -241,6 +269,16 @@ add_dependencies(openvdb_print openvdb)
 # add_dependencies(openvdb_render openvdb)
 add_dependencies(openvdb_view openvdb)
 
-install(TARGETS openvdb ARCHIVE DESTINATION lib)
+if(OPENVDB_BUILD_SHARED)
+  install(TARGETS openvdb LIBRARY DESTINATION lib)
+else()
+  install(TARGETS openvdb ARCHIVE DESTINATION lib)
+endif()
 install(TARGETS openvdb_print openvdb_view RUNTIME DESTINATION bin)
 install(DIRECTORY openvdb/openvdb DESTINATION include)
+
+get_directory_property(OPENVDB_HAS_PARENT PARENT_DIRECTORY)
+if(OPENVDB_HAS_PARENT)
+  # This project is included from somewhere else. Export OPENVDB_EXTRA_LIBS variable
+  set(OPENVDB_EXTRA_LIBS ${OPENVDB_EXTRA_LIBS} PARENT_SCOPE)
+endif()
