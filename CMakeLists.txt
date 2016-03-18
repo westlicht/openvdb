@@ -12,7 +12,9 @@ option(OPENVDB_BUILD_VIEWER "Build OpenVDB viewer application?" ON)
 option(OPENVDB_BUILD_SHARED  "Build OpenVDB as a shared library?" ON)
 
 # Required libraries for linking against OpenVDB (all targets)
-set(OPENVDB_EXTRA_LIBS "")
+set(OPENVDB_EXTRA_INCLUDE_DIRS "")
+set(OPENVDB_EXTRA_LIBRARY_DIRS "")
+set(OPENVDB_EXTRA_LIBRARIES "")
 
 if(APPLE AND OPENVDB_BUILD_SHARED)
   set(CMAKE_MACOSX_RPATH ON)
@@ -32,7 +34,7 @@ endif()
 include(ExternalProject)
 set(CMAKE_EXTERNAL_ARGUMENTS -DCMAKE_BUILD_TYPE=Release
   -DCMAKE_GENERATOR=${CMAKE_GENERATOR} -Wno-dev
-  -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/ext_build/dist)
+  -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ext_build/dist)
 
 # Parse arguments for nested build process
 if(NOT CMAKE_EXTERNAL_ARGUMENTS)
@@ -50,9 +52,9 @@ if (MSVC)
   add_definitions (/D "_CRT_SECURE_NO_WARNINGS")
 
   include_directories(ext/glew/include)
-  set(OPENVDB_EXTRA_LIBS opengl32 glew)
+  set(OPENVDB_EXTRA_LIBRARIES opengl32 glew)
 
-  set(OPENVDB_EXTRA_LIBS ${OPENVDB_EXTRA_LIBS}
+  set(OPENVDB_EXTRA_LIBRARIES ${OPENVDB_EXTRA_LIBRARIES}
     $<$<CONFIG:Debug>:zlibstaticd>
     $<$<CONFIG:RelWithDebInfo>:zlibstatic>
     $<$<CONFIG:Release>:zlibstatic> 
@@ -78,7 +80,7 @@ elseif(APPLE)
   find_library(opengl_library OpenGL)
   find_library(corevideo_library CoreVideo)
   find_library(iokit_library IOKit)
-  set(OPENVDB_EXTRA_LIBS ${cocoa_library} ${opengl_library} ${corevideo_library} ${iokit_library} z)
+  set(OPENVDB_EXTRA_LIBRARIES ${cocoa_library} ${opengl_library} ${corevideo_library} ${iokit_library} z)
 
   # Compile in C++11 mode
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -stdlib=libc++")
@@ -92,15 +94,17 @@ elseif(APPLE)
   set(CMAKE_EXTERNAL_ARGUMENTS ${CMAKE_EXTERNAL_ARGUMENTS} -DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET} -DCMAKE_OSX_SYSROOT=${CMAKE_OSX_SYSROOT})
 elseif("${CMAKE_SYSTEM}" MATCHES "Linux")
   # Linux-specific build flags
-  set(OPENVDB_EXTRA_LIBS dl GL GLU Xxf86vm Xrandr Xinerama Xcursor Xi X11 pthread z)
+  set(OPENVDB_EXTRA_LIBRARIES dl GL GLU Xxf86vm Xrandr Xinerama Xcursor Xi X11 pthread z)
 
   # Compile in C++11 mode
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 endif()
 
+# Disable some clang warnings
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-register")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-private-field")
 endif()
 
 if(WIN32)
@@ -130,7 +134,7 @@ ExternalProject_Add(IlmBase_p
 ExternalProject_Add(OpenEXR_p
   URL             "${CMAKE_CURRENT_SOURCE_DIR}/ext/openexr/OpenEXR"
   PREFIX          "ext_build"
-  CMAKE_ARGS      ${CMAKE_EXTERNAL_ARGUMENTS} -DOPENEXR_BUILD_SHARED_LIBS=OFF -DILMBASE_PACKAGE_PREFIX=${CMAKE_BINARY_DIR}/ext_build/dist -DBUILD_SHARED_LIBS=OFF -DNAMESPACE_VERSIONING=NO
+  CMAKE_ARGS      ${CMAKE_EXTERNAL_ARGUMENTS} -DOPENEXR_BUILD_SHARED_LIBS=OFF -DILMBASE_PACKAGE_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/ext_build/dist -DBUILD_SHARED_LIBS=OFF -DNAMESPACE_VERSIONING=NO
 )
 
 # Build GLFW
@@ -152,15 +156,13 @@ list(APPEND CMAKE_EXTERNAL_ARGUMENTS -D CMAKE_EXTERNAL_ARGUMENTS:STRING=${CMAKE_
 
 # Boost
 find_package(Boost REQUIRED COMPONENTS system iostreams thread)
-include_directories(${Boost_INCLUDE_DIRS})
-link_directories(${Boost_LIBRARY_DIRS})
+list(APPEND OPENVDB_EXTRA_INCLUDE_DIRS ${Boost_INCLUDE_DIRS})
+list(APPEND OPENVDB_EXTRA_LIBRARY_DIRS ${Boost_LIBRARY_DIRS})
 
 # Include & library directories
-link_directories(${CMAKE_BINARY_DIR}/ext_build/dist/lib)
-include_directories(
-  ${CMAKE_BINARY_DIR}/ext_build/dist/include
-  ${CMAKE_BINARY_DIR}/ext_build/dist/include/OpenEXR
-)
+list(APPEND OPENVDB_EXTRA_INCLUDE_DIRS ${CMAKE_CURRENT_BINARY_DIR}/ext_build/dist/include)
+list(APPEND OPENVDB_EXTRA_INCLUDE_DIRS ${CMAKE_CURRENT_BINARY_DIR}/ext_build/dist/include/OpenEXR)
+list(APPEND OPENVDB_EXTRA_LIBRARY_DIRS ${CMAKE_CURRENT_BINARY_DIR}/ext_build/dist/lib)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/openvdb)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/openvdb/openvdb)
@@ -168,7 +170,10 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/ext)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/ext/zlib)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/ext/glfw)
 
-set(OPENVDB_EXTRA_LIBS IlmImf-2_2 IlmThread-2_2 Iex-2_2 IexMath-2_2 Imath-2_2 Half tbb glfw3 ${OPENVDB_EXTRA_LIBS} ${Boost_LIBRARIES})
+set(OPENVDB_EXTRA_LIBRARIES IlmImf-2_2 IlmThread-2_2 Iex-2_2 IexMath-2_2 Imath-2_2 Half tbb glfw3 ${OPENVDB_EXTRA_LIBRARIES} ${Boost_LIBRARIES})
+
+include_directories(${OPENVDB_EXTRA_INCLUDE_DIRS})
+link_directories(${OPENVDB_EXTRA_LIBRARY_DIRS})
 
 #--------------------------------------------------------------------
 # Define defintions
@@ -240,7 +245,7 @@ endif()
 add_library(openvdb ${OPENVDB_LIBRARY_TYPE} ${openvdb_sources} ${openvdb_headers})
 target_compile_definitions(openvdb PRIVATE OPENVDB_PRIVATE)
 #set_target_properties(openvdb PROPERTIES COMPILE_DEFINITIONS "OPENVDB_PRIVATE")
-target_link_libraries(openvdb ${OPENVDB_EXTRA_LIBS})
+target_link_libraries(openvdb ${OPENVDB_EXTRA_LIBRARIES})
 
 # openvdb viewer library
 file(GLOB_RECURSE openvdb_viewer_headers ${CMAKE_CURRENT_SOURCE_DIR}/openvdb/openvdb/viewer/*.h)
@@ -279,6 +284,8 @@ install(DIRECTORY openvdb/openvdb DESTINATION include)
 
 get_directory_property(OPENVDB_HAS_PARENT PARENT_DIRECTORY)
 if(OPENVDB_HAS_PARENT)
-  # This project is included from somewhere else. Export OPENVDB_EXTRA_LIBS variable
-  set(OPENVDB_EXTRA_LIBS ${OPENVDB_EXTRA_LIBS} PARENT_SCOPE)
+  # This project is included from somewhere else. Export OPENVDB_EXTRA_XXX variables
+  set(OPENVDB_EXTRA_INCLUDE_DIRS ${OPENVDB_EXTRA_INCLUDE_DIRS} PARENT_SCOPE)
+  set(OPENVDB_EXTRA_LIBRARY_DIRS ${OPENVDB_EXTRA_LIBRARY_DIRS} PARENT_SCOPE)
+  set(OPENVDB_EXTRA_LIBRARIES ${OPENVDB_EXTRA_LIBRARIES} PARENT_SCOPE)
 endif()
